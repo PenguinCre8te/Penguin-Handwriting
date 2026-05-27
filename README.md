@@ -1,6 +1,6 @@
 My touchpad is too big and annoying when I have a mouse so I made this to utilise it as a handwriting input method.
 # Installation
-```git clone https://github.com/PenguinCre8te/Penguin-Handwriting.git && cd Penguin-Handwriting && ./run.sh```
+```curl -sSL https://raw.githubusercontent.com/PenguinCre8te/Penguin-Handwriting/refs/heads/main/installer.sh | sudo bash```
 # Disclaimer
 It uses hard coded keyboard and touchpad events so it ~~might~~ *will* not work on any device other than a Lenovo ThinkBook 16 Gen 7 QOY.
 Have fun!
