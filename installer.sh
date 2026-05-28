@@ -3,9 +3,17 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Ensure the script is run as root
+# Ensure the installer script itself is run as root to handle system paths
 if [ "$EUID" -ne 0 ]; then
   echo "Error: Please run this installer with sudo." >&2
+  exit 1
+fi
+
+# Identify the actual user who invoked sudo
+if [ -n "$SUDO_USER" ]; then
+  REAL_USER="$SUDO_USER"
+else
+  echo "Error: Could not detect the non-root user. Please run with 'sudo ./install.sh'" >&2
   exit 1
 fi
 
@@ -34,11 +42,36 @@ if command -v apt-get &> /dev/null; then
   apt-get update -yq
   apt-get install -yq python3-evdev python3-tk
 else
-  echo "Warning: apt-get not found. Trying to install evdev with pip."
-  if command -v pip3 &> /dev/null; then
-    pip3 install evdev --break-system-packages || true
+  echo "Warning: apt-get not found. Verifying Python dependencies via pip/modules..."
+  
+  # Check and try to install evdev
+  if ! python3 -c "import evdev" &> /dev/null; then
+    if command -v pip3 &> /dev/null; then
+      echo "  -> evdev not found. Trying to install via pip..."
+      pip3 install evdev --break-system-packages || true
+    else
+      echo "Error: evdev is missing and pip3 is not installed." >&2
+      exit 1
+    fi
+  fi
+
+  # Check Tkinter availability
+  if ! python3 -c "import tkinter" &> /dev/null; then
+    echo "Error: Tkinter is not installed or available to Python. Please install your distribution's python3-tk package." >&2
+    exit 1
   fi
 fi
+
+# Configure input group permissions for the user
+echo "Configuring input group permissions..."
+# Ensure the 'input' group exists (standard on most modern Linux distros)
+if ! getent group input > /dev/null; then
+  groupadd input
+fi
+
+# Add the real user to the input group so they can access the touchpad device
+echo "  -> Adding user '$REAL_USER' to the 'input' group..."
+usermod -aG input "$REAL_USER"
 
 # Set up cleanup trap for temporary directory
 cleanup() {
@@ -80,22 +113,12 @@ INTERNAL_BIN="$BIN_DIR/.$BINARY_NAME-raw.py"
 cp "$SCRIPT_NAME" "$INTERNAL_BIN"
 chmod 755 "$INTERNAL_BIN"
 
-# 3. Create execution wrapper to pass X11/Wayland authorization tokens to root
+# 3. Create execution wrapper (No longer requires xauth/root tricks!)
 TARGET_BIN="$BIN_DIR/$BINARY_NAME"
 cat << 'EOF' > "$TARGET_BIN"
 #!/usr/bin/env bash
-# Merge the user's .Xauthority details so root can render the Tkinter GUI
-if [ -n "$XAUTHORITY" ]; then
-    xauth merge "$XAUTHORITY"
-elif [ -f "$HOME/.Xauthority" ]; then
-    xauth merge "$HOME/.Xauthority"
-fi
 
-# Fallback environment variables for display access
-export DISPLAY="${DISPLAY:-:0}"
-export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-0}"
-
-# Run the raw Python script
+# Run the raw Python script as the current user
 exec python3 "/usr/local/bin/.penguinhandwriting-raw.py" "$@"
 EOF
 
@@ -104,7 +127,7 @@ sed -i "s|\.penguinhandwriting-raw\.py|.$BINARY_NAME-raw.py|g" "$TARGET_BIN"
 chmod 755 "$TARGET_BIN"
 echo "  -> Executable wrapper installed to: $TARGET_BIN"
 
-# 4. Generate Desktop Entry with functional X11 tunnel variables
+# 4. Generate Desktop Entry (Removed pkexec so it runs as the logged-in user)
 DESKTOP_FILE="$APP_DIR/$BINARY_NAME.desktop"
 
 cat << EOF > "$DESKTOP_FILE"
@@ -113,7 +136,7 @@ Type=Application
 Version=1.0
 Name=$APP_NAME
 Comment=$COMMENT
-Exec=pkexec env DISPLAY=$DISPLAY XAUTHORITY=$XAUTHORITY $TARGET_BIN
+Exec=$TARGET_BIN
 Icon=$SYSTEM_ICON_TARGET
 Terminal=false
 Categories=$CATEGORIES
@@ -130,4 +153,8 @@ if command -v update-desktop-database &> /dev/null; then
   update-desktop-database /usr/share/applications || true
 fi
 
+echo "--------------------------------------------------------"
 echo "Installation complete!"
+echo "IMPORTANT: User '$REAL_USER' was added to the 'input' group."
+echo "You MUST log out and log back in (or restart) for the group changes to take effect."
+echo "--------------------------------------------------------"
