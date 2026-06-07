@@ -96,7 +96,7 @@ if [ ! -f "$REPO_ICON_PATH" ]; then
   echo "Warning: Icon not found at '$REPO_ICON_PATH'. Falling back to default system icon."
   SYSTEM_ICON_TARGET="utilities-terminal"
 else
-  SYSTEM_ICON_TARGET="$BINARY_NAME"
+  SYSTEM_ICON_TARGET="$ICON_DIR/$BINARY_NAME.jpg"
 fi
 
 echo "Installing $APP_NAME system-wide..."
