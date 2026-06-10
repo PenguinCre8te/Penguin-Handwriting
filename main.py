@@ -20,7 +20,7 @@ DEFAULT_CONFIG = {
     "TOUCHPAD_PATH": "/dev/input/by-path/platform-b88000.i2c-event-mouse",
     "KEYBOARD_PATH": "/dev/input/by-path/platform-b88000.i2c-event-kbd",
     "WINDOW_WIDTH": 450,
-    "WINDOW_HEIGHT": 340, # Increased slightly to accommodate dedicated error label cleanly
+    "WINDOW_HEIGHT": 300, # Increased slightly to accommodate dedicated error label cleanly
     "STROKE_COLOR": "#0078d7",
     "LANGUAGE": "Chinese (Simplified)"
 }
@@ -84,7 +84,7 @@ class PenguinHandwriting:
         # Error UI Elements (Dedicated bottom container)
         self.error_frame = tk.Frame(self.root, bg="#fef2f2")
         self.error_label = tk.Label(self.error_frame, text="", font=("Arial", 9, "bold"), fg="#ef4444", bg="#fef2f2", anchor="w")
-        self.error_label.pack(fill=tk.X, padx=10, pady=3)
+        self.error_frame.pack_forget()
 
         # Candidates Bar Master
         self.candidate_frame = tk.Frame(self.root, bg=self.CANDIDATE_BG)
@@ -194,7 +194,7 @@ class PenguinHandwriting:
                 if event.code == ecodes.ABS_MT_POSITION_X:
                     x = int((event.value / self.cfg['TOUCH_MAX_X']) * self.cfg['WINDOW_WIDTH'])
                 elif event.code == ecodes.ABS_MT_POSITION_Y:
-                    y = int((event.value / self.cfg['TOUCH_MAX_Y']) * (self.cfg['WINDOW_HEIGHT'] - 130))
+                    y = int((event.value / self.cfg['TOUCH_MAX_Y']) * (self.cfg['WINDOW_HEIGHT'] - 95))
             
             elif event.type == ecodes.EV_KEY and event.code == ecodes.BTN_TOUCH:
                 self.is_touching = bool(event.value)
